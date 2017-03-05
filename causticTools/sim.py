@@ -1,3 +1,4 @@
+#runs the cython simulation (jury is out on whether this need be it's own file...)
 import Cython
 import pyximport
 pyximport.install()

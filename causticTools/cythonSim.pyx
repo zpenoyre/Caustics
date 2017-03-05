@@ -1,5 +1,6 @@
+# The cython simulation itself
 import numpy as np
-#cimport numpy as np
+#cimport numpy as np (pyximport seems to break on this! not needed anyway)
 
 cdef edgeClass[:] edges
 cdef shellClass[:] shells
@@ -170,7 +171,7 @@ def init(nShells,nEcc,nPhase,minR,maxR,rho,m0):
         newShell.lowEdge=i
         newShell.highEdge=i+1
         newShell.rho=rho/(2*nPhase*nEcc) #adjusted for overlapping shells
-        newShell.m=(1/(2*nPhase*nEcc))*(4/3)*np.pi*rho*((rs[(i+1)%(nShells+1)]**3)-(rs[i%(nShells+1)]**3))
+        newShell.m=newShell.rho*(4./3.)*np.pi*((rs[(i+1)%(nShells+1)]**3)-(rs[i%(nShells+1)]**3))
         
         shells[shellsCreated]=newShell 
         shellsCreated+=1 
