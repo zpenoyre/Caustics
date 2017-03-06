@@ -27,10 +27,14 @@ def plotSmoothDens(fig,whichOutput,nOutput,simName,smoothLength,minR,maxR):
     shellData=np.genfromtxt('output/'+simName+'.'+str(int(whichOutput))+'_'+str(int(nOutput))+'.txt')
     dr=0.25
     nBins=int((maxR-minR)/dr)
-    print(nBins,' bins')
     rads=np.linspace(minR+dr,maxR-dr,nBins)
     dens=cythonMisc.findSmoothDens(rads,nBins,shellData,smoothLength)
     
     cols=bokeh.palettes.Viridis11
     fig.line(rads,dens,color=cols[int(11*(whichOutput/nOutput))],line_width=2)
+    return fig
+    
+def plotDensProfile(fig,Rs,Rhos,minR,maxR,colour): #if alread have radii and densities plot directly
+    cols=bokeh.palettes.Viridis11
+    fig.line(Rs,Rhos,color=cols[int(11*colour)],line_width=2)
     return fig
