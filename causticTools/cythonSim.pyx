@@ -178,8 +178,9 @@ def init(nShells,nEcc,nPhase,minR,maxR,rho,m0):
 # END ___ init() ___________________
         
 #outputs data for shells and their edges, sufficient for plotting and/or restart
-def outputData(rho,whichStep,nOutput,simName):
+def outputData(step,dt,rho,whichStep,nOutput,simName):
     fName='output/'+simName+'.'+str(int(whichStep))+'_'+str(int(nOutput))+'.txt'
+    headerString='step='+str(step)+', t='+str(step*dt)+', rho0='+str(rho)
     print('Saving to file: ',fName)
     # 0_shellIndex, 1_shellMass, 2_shellDens, 3_r1, 4_r2, 5_vr1, 6_vr2, 7_M1, 8_M2
     shellData=np.zeros((len(shells),9))
@@ -200,7 +201,7 @@ def outputData(rho,whichStep,nOutput,simName):
         shellData[ind,6]=highEdge.vr
         shellData[ind,7]=lowEdge.M
         shellData[ind,8]=highEdge.M
-    np.savetxt(fName,shellData)
+    np.savetxt(fName,shellData,header=headerString)
 # END ___ outputData() ___________________
 
 def printEdge(whichEdge): #just outputs all edge properties for debugging
@@ -253,4 +254,4 @@ cpdef void runSim(int nShells,int nPhase,int nEcc,
             edge.updateV(dt)
     
         if (step%outputSteps==0):
-            outputData(rho,step/outputSteps,nOutput,simName)
+            outputData(step,dt,rho,step/outputSteps,nOutput,simName)
