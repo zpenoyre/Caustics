@@ -10,6 +10,7 @@ from Cython.Compiler.Options import get_directive_defaults
 get_directive_defaults()['linetrace'] = True
 get_directive_defaults()['binding'] = True
 
-def runSim(nShells,nPhase,nEcc,rho,T,dt,rMin,rMax,M,m,name,nOutput,G=4.96e-15):
-    cythonSim.updateGlobal(G,M,m)
-    cythonSim.runSim(nShells,nPhase,nEcc,T,dt,rMin,rMax,rho,nOutput,name)
+def runSim(nShells,nPhase,nEcc,T,dt,rMin,rMax,name,nOutput,dmMass,baryonInit,baryonMass,G=4.96e-15):
+    cythonSim.updateGlobal(G) #updates global variables
+    cythonSim.setFunctions(dmMass,baryonInit,baryonMass) #sets user definied function for the intial state and final baryon mass
+    cythonSim.runSim(nShells,nPhase,nEcc,T,dt,rMin,rMax,nOutput,name) #runs the simulation

@@ -5,14 +5,28 @@ import numpy as np
 cdef edgeClass[:] edges
 cdef shellClass[:] shells
 
-cdef double G=1,M=1,m=1
-cpdef void updateGlobal(new_G,new_M,new_m):
+cdef double G=1
+cpdef void updateGlobal(new_G):
     global G
     G=new_G
-    global M
-    M=new_M
-    global m
-    m=new_m
+
+# Basic function which mass enclosed functions used elsewhere are mapped onto (see http://docs.cython.org/en/latest/src/tutorial/cdef_classes.html)
+cdef class massFunction:
+    cpdef double evaluate(self,double r) except *:
+        return 0
+
+# these functions are called in density checks
+cdef massFunction dmMass
+cdef massFunction baryonInit
+cdef massFunction baryonMass
+
+# and their form is inputted from python here
+cpdef void setFunctions(massFunction dm, massFunction iBaryon, massFunction fBaryon):
+    global dmMass, baryonInit, baryonMass
+    dmMass=dm
+    baryonInit=iBaryon
+    baryonMass=fBaryon
+    
     
 #object based shells
 cdef class edgeClass: #edges of shells (radii being evolved)
@@ -45,7 +59,7 @@ cdef class shellClass: #shells themselves (constant mass, changing density)
         self.highEdge=-1 #index of second edge
         self.ind=-1 #for shells[whichShell] should equal whichShell
 
-cdef void findMass(float m0):
+cdef void findMass():
     cdef:
         int i,count,nOverlap
         double dV, fourPi_three=4*np.pi/3
@@ -61,7 +75,8 @@ cdef void findMass(float m0):
     cdef list overlap=[] #list of shells currently overlapping
     
     cdef edgeClass thisEdge=edges[sort[0]]
-    thisEdge.M=m0
+    cdef double mass=baryonMass.evaluate(thisEdge.r)
+    thisEdge.M=mass
     cdef shellClass thisShell
     
     #print('________________First edge:')
@@ -77,13 +92,15 @@ cdef void findMass(float m0):
         shellFlag[thisShell.ind]=0
         overlap.append([thisShell.highEdge,thisShell.rho])
     
-    cdef double mass=m0
     cdef edgeClass lastEdge=thisEdge
     for i in range(1,nEdge):
         #print(i,'th edge: _________________')
         #printEdge(sort[i])
+        
         thisEdge=edges[sort[i]]
         dV=fourPi_three*(thisEdge.r**3 - lastEdge.r**3)
+        mass+=baryonMass.evaluate(thisEdge.r)-baryonMass.evaluate(lastEdge.r)
+        #print('shell mass: ',baryonMass.evaluate(lastEdge.r,thisEdge.r))
         nOverlap=len(overlap)
         count=0
         while (count<nOverlap):
@@ -115,7 +132,7 @@ cdef void findMass(float m0):
 # END ___ findMass() ___________________
     
 #initialises edges and, where they exist, the shells they contain (most properties blank)
-def init(nShells,nEcc,nPhase,minR,maxR,rho,m0):
+def init(nShells,nEcc,nPhase,minR,maxR):
     nEdge=2*(nShells+1)*nPhase*nEcc
     nShell=2*nShells*nPhase*nEcc #total number of shells of all phases and e
     global edges
@@ -143,7 +160,9 @@ def init(nShells,nEcc,nPhase,minR,maxR,rho,m0):
         
         newEdge.ind=i
         newEdge.r=rs[i%(nShells+1)]
-        newEdge.M=m0+(4*np.pi*rho*(newEdge.r**3 - rs[0]**3)/3)
+        newEdge.M=baryonInit.evaluate(newEdge.r)+dmMass.evaluate(newEdge.r)
+        #print('edge ',i,' has mass ',newEdge.M)
+        #m0+(4*np.pi*rho*(newEdge.r**3 - rs[0]**3)/3)
         
         e=1+small-np.sqrt(1-(int(i/(2*(nShells+1)*nPhase))/nEcc)) #linearly decreasing eccentricity probability
         psi=findPsi((int(i/(2*(nShells+1)))%nPhase)/nPhase,newEdge.e)+(int(i/(nShells+1))%2)*np.pi
@@ -170,17 +189,20 @@ def init(nShells,nEcc,nPhase,minR,maxR,rho,m0):
         newShell.ind=shellsCreated
         newShell.lowEdge=i
         newShell.highEdge=i+1
-        newShell.rho=rho/(2*nPhase*nEcc) #adjusted for overlapping shells
-        newShell.m=newShell.rho*(4./3.)*np.pi*((rs[(i+1)%(nShells+1)]**3)-(rs[i%(nShells+1)]**3))
+        lowR=rs[i%(nShells+1)]
+        highR=rs[(i+1)%(nShells+1)]
+        mShell=dmMass.evaluate(highR)-dmMass.evaluate(lowR)
+        newShell.m=mShell/(2*nPhase*nEcc) #adjusted for overlapping shells
+        newShell.rho=newShell.m/((4./3.)*np.pi*(highR**3 - lowR**3)) #average density over shell
         
         shells[shellsCreated]=newShell 
         shellsCreated+=1 
 # END ___ init() ___________________
         
 #outputs data for shells and their edges, sufficient for plotting and/or restart
-def outputData(step,dt,rho,whichStep,nOutput,simName):
+def outputData(step,dt,whichStep,nOutput,simName):
     fName='output/'+simName+'.'+str(int(whichStep))+'_'+str(int(nOutput))+'.txt'
-    headerString='step='+str(step)+', t='+str(step*dt)+', rho0='+str(rho)
+    headerString='step='+str(step)+', t='+str(step*dt)
     print('Saving to file: ',fName)
     # 0_shellIndex, 1_shellMass, 2_shellDens, 3_r1, 4_r2, 5_vr1, 6_vr2, 7_M1, 8_M2
     shellData=np.zeros((len(shells),9))
@@ -228,9 +250,9 @@ def printShell(whichShell): #as above with shell properties
 
 cpdef void runSim(int nShells,int nPhase,int nEcc,
                   double tMax,double dt,
-                  double minR,double maxR,double rho,
+                  double minR,double maxR,
                   int nOutput,str simName):
-    init(nShells,nEcc,nPhase,minR,maxR,rho,M)
+    init(nShells,nEcc,nPhase,minR,maxR)
     cdef:
         int nSteps=int(tMax/dt)
         int outputSteps=int(nSteps/nOutput)
@@ -249,9 +271,9 @@ cpdef void runSim(int nShells,int nPhase,int nEcc,
         for shell in shells:
             shell.rho=shell.m/( (4*np.pi/3)*np.abs(edges[shell.lowEdge].r**3 - edges[shell.highEdge].r**3) )
         # Finds mass internal to each shell
-        findMass(m)
+        findMass()
         for edge in edges:
             edge.updateV(dt)
     
         if (step%outputSteps==0):
-            outputData(step,dt,rho,step/outputSteps,nOutput,simName)
+            outputData(step,dt,step/outputSteps,nOutput,simName)
