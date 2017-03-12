@@ -1,5 +1,6 @@
 # The cython simulation itself
 import numpy as np
+import scipy.optimize
 #cimport numpy as np (pyximport seems to break on this! not needed anyway)
 
 cdef edgeClass[:] edges
@@ -20,13 +21,21 @@ cdef massFunction dmMass
 cdef massFunction baryonInit
 cdef massFunction baryonMass
 
+# this function is the distribution of ccentricities (later probably to be replaced with vr and vt)
+cdef massFunction findEcc
+def findPsi(P,ecc): #function needed to find psi for a given eccentricity and probability REVISIT
+    def P_eta(eta,P,ecc):
+        return (eta-ecc*np.sin(eta))/(2*np.pi) - P
+    eta=scipy.optimize.brentq(P_eta,0,2*np.pi,args=(P,ecc))
+    return np.arctan(np.sqrt((1+ecc)/(1-ecc))*np.tan(eta))
+
 # and their form is inputted from python here
-cpdef void setFunctions(massFunction dm, massFunction iBaryon, massFunction fBaryon):
-    global dmMass, baryonInit, baryonMass
+cpdef void setFunctions(massFunction dm, massFunction iBaryon, massFunction fBaryon, massFunction eDist):
+    global dmMass, baryonInit, baryonMass, findEcc
     dmMass=dm
     baryonInit=iBaryon
     baryonMass=fBaryon
-    
+    findEcc=eDist
     
 #object based shells
 cdef class edgeClass: #edges of shells (radii being evolved)
@@ -142,13 +151,6 @@ def init(nShells,nEcc,nPhase,minR,maxR):
     shellArray=np.array([None]*nShell)
     shells=shellArray
     
-    def findPsi(P,ecc): #function needed to find psi for a given eccentricity and probability REVISIT
-        def P_eta(eta,ecc):
-            return (eta-ecc*np.sin(eta))/(2*np.pi)
-        import scipy.optimize
-        eta=scipy.optimize.brentq(P_eta,0,2*np.pi,args=(ecc))
-        return np.arctan(np.sqrt((1+ecc)/(1-ecc))*np.tan(eta))
-    
     # Initial radii of edges
     rs=np.linspace(np.sqrt(minR),np.sqrt(maxR),nShells+1)**2
     small=1e-6 #prevents perfectly circular orbits (confuses other processes)
@@ -164,8 +166,13 @@ def init(nShells,nEcc,nPhase,minR,maxR):
         #print('edge ',i,' has mass ',newEdge.M)
         #m0+(4*np.pi*rho*(newEdge.r**3 - rs[0]**3)/3)
         
-        e=1+small-np.sqrt(1-(int(i/(2*(nShells+1)*nPhase))/nEcc)) #linearly decreasing eccentricity probability
+        print('P ecc: ',(int(i/(2*(nShells+1)*nPhase))/nEcc))
+        e=small+findEcc.evaluate((int(i/(2*(nShells+1)*nPhase))/nEcc))
+        print('ecc: ',e)
+        #1+small-np.sqrt(1-(int(i/(2*(nShells+1)*nPhase))/nEcc)) #linearly decreasing eccentricity probability
+        print('P phase: ',(int(i/(2*(nShells+1)))%nPhase)/nPhase)
         psi=findPsi((int(i/(2*(nShells+1)))%nPhase)/nPhase,newEdge.e)+(int(i/(nShells+1))%2)*np.pi
+        print('psi: ',psi)
         a=newEdge.r*(1+e*np.cos(psi))/(1-e**2)
         newEdge.lSq=G*newEdge.M*a*(1-e**2)
         newEdge.vr=np.sqrt(newEdge.lSq)*e*np.sin(psi)/(a*(1-e**2))
