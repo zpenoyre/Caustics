@@ -25,8 +25,16 @@ cdef massFunction baryonMass
 cdef massFunction findEcc
 def findPsi(P,ecc): #function needed to find psi for a given eccentricity and probability REVISIT
     def P_eta(eta,P,ecc):
-        return (eta-ecc*np.sin(eta))/(2*np.pi) - P
+        #print('eta: ',eta)
+        #print('P: ',(eta-ecc*np.sin(eta))/(2*np.pi))
+        return ((eta-ecc*np.sin(eta))/(2*np.pi))-P
     eta=scipy.optimize.brentq(P_eta,0,2*np.pi,args=(P,ecc))
+    #print('eta found: ',eta)
+    #print('P(eta): ',P_eta(eta,P,ecc))
+    etas=np.linspace(0,2*np.pi,5)
+    ps=P_eta(etas,P,ecc)
+    #print('etas: ',etas)
+    #print('Ps: ',ps)
     return np.arctan(np.sqrt((1+ecc)/(1-ecc))*np.tan(eta))
 
 # and their form is inputted from python here
@@ -166,13 +174,13 @@ def init(nShells,nEcc,nPhase,minR,maxR):
         #print('edge ',i,' has mass ',newEdge.M)
         #m0+(4*np.pi*rho*(newEdge.r**3 - rs[0]**3)/3)
         
-        print('P ecc: ',(int(i/(2*(nShells+1)*nPhase))/nEcc))
+        #print('P ecc: ',(int(i/(2*(nShells+1)*nPhase))/nEcc))
         e=small+findEcc.evaluate((int(i/(2*(nShells+1)*nPhase))/nEcc))
-        print('ecc: ',e)
+        #print('ecc: ',e)
         #1+small-np.sqrt(1-(int(i/(2*(nShells+1)*nPhase))/nEcc)) #linearly decreasing eccentricity probability
-        print('P phase: ',(int(i/(2*(nShells+1)))%nPhase)/nPhase)
-        psi=findPsi((int(i/(2*(nShells+1)))%nPhase)/nPhase,newEdge.e)+(int(i/(nShells+1))%2)*np.pi
-        print('psi: ',psi)
+        #print('P phase: ',(int(i/(2*(nShells+1)))%nPhase)/nPhase)
+        psi=findPsi((int(i/(2*(nShells+1)))%nPhase)/nPhase,e)+(int(i/(nShells+1))%2)*np.pi
+        #print('psi: ',psi)
         a=newEdge.r*(1+e*np.cos(psi))/(1-e**2)
         newEdge.lSq=G*newEdge.M*a*(1-e**2)
         newEdge.vr=np.sqrt(newEdge.lSq)*e*np.sin(psi)/(a*(1-e**2))
