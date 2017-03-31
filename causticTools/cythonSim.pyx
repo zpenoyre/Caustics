@@ -1,5 +1,6 @@
 # The cython simulation itself
 import numpy as np
+import scipy.optimize
 #cimport numpy as np (pyximport seems to break on this! not needed anyway)
 
 cdef edgeClass[:] edges
@@ -20,13 +21,29 @@ cdef massFunction dmMass
 cdef massFunction baryonInit
 cdef massFunction baryonMass
 
+# this function is the distribution of ccentricities (later probably to be replaced with vr and vt)
+cdef massFunction findEcc
+def findPsi(P,ecc): #function needed to find psi for a given eccentricity and probability REVISIT
+    def P_eta(eta,P,ecc):
+        #print('eta: ',eta)
+        #print('P: ',(eta-ecc*np.sin(eta))/(2*np.pi))
+        return ((eta-ecc*np.sin(eta))/(2*np.pi))-P
+    eta=scipy.optimize.brentq(P_eta,0,2*np.pi,args=(P,ecc))
+    #print('eta found: ',eta)
+    #print('P(eta): ',P_eta(eta,P,ecc))
+    etas=np.linspace(0,2*np.pi,5)
+    ps=P_eta(etas,P,ecc)
+    #print('etas: ',etas)
+    #print('Ps: ',ps)
+    return np.arctan(np.sqrt((1+ecc)/(1-ecc))*np.tan(eta))
+
 # and their form is inputted from python here
-cpdef void setFunctions(massFunction dm, massFunction iBaryon, massFunction fBaryon):
-    global dmMass, baryonInit, baryonMass
+cpdef void setFunctions(massFunction dm, massFunction iBaryon, massFunction fBaryon, massFunction eDist):
+    global dmMass, baryonInit, baryonMass, findEcc
     dmMass=dm
     baryonInit=iBaryon
     baryonMass=fBaryon
-    
+    findEcc=eDist
     
 #object based shells
 cdef class edgeClass: #edges of shells (radii being evolved)
@@ -142,13 +159,6 @@ def init(nShells,nEcc,nPhase,minR,maxR):
     shellArray=np.array([None]*nShell)
     shells=shellArray
     
-    def findPsi(P,ecc): #function needed to find psi for a given eccentricity and probability REVISIT
-        def P_eta(eta,ecc):
-            return (eta-ecc*np.sin(eta))/(2*np.pi)
-        import scipy.optimize
-        eta=scipy.optimize.brentq(P_eta,0,2*np.pi,args=(ecc))
-        return np.arctan(np.sqrt((1+ecc)/(1-ecc))*np.tan(eta))
-    
     # Initial radii of edges
     rs=np.linspace(np.sqrt(minR),np.sqrt(maxR),nShells+1)**2
     small=1e-6 #prevents perfectly circular orbits (confuses other processes)
@@ -164,8 +174,13 @@ def init(nShells,nEcc,nPhase,minR,maxR):
         #print('edge ',i,' has mass ',newEdge.M)
         #m0+(4*np.pi*rho*(newEdge.r**3 - rs[0]**3)/3)
         
-        e=1+small-np.sqrt(1-(int(i/(2*(nShells+1)*nPhase))/nEcc)) #linearly decreasing eccentricity probability
-        psi=findPsi((int(i/(2*(nShells+1)))%nPhase)/nPhase,newEdge.e)+(int(i/(nShells+1))%2)*np.pi
+        #print('P ecc: ',(int(i/(2*(nShells+1)*nPhase))/nEcc))
+        e=small+findEcc.evaluate((int(i/(2*(nShells+1)*nPhase))/nEcc))
+        #print('ecc: ',e)
+        #1+small-np.sqrt(1-(int(i/(2*(nShells+1)*nPhase))/nEcc)) #linearly decreasing eccentricity probability
+        #print('P phase: ',(int(i/(2*(nShells+1)))%nPhase)/nPhase)
+        psi=findPsi((int(i/(2*(nShells+1)))%nPhase)/nPhase,e)+(int(i/(nShells+1))%2)*np.pi
+        #print('psi: ',psi)
         a=newEdge.r*(1+e*np.cos(psi))/(1-e**2)
         newEdge.lSq=G*newEdge.M*a*(1-e**2)
         newEdge.vr=np.sqrt(newEdge.lSq)*e*np.sin(psi)/(a*(1-e**2))
@@ -254,8 +269,8 @@ cpdef void runSim(int nShells,int nPhase,int nEcc,
                   int nOutput,str simName):
     init(nShells,nEcc,nPhase,minR,maxR)
     cdef:
-        int nSteps=int(tMax/dt)
-        int outputSteps=int(nSteps/nOutput)
+        int nSteps=int(tMax/dt)+1
+        int outputSteps=int((nSteps-1)/nOutput) #should ensure n+1 outputs
         int step
         edgeClass edge
         shellClass shell

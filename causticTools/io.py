@@ -24,7 +24,9 @@ def plotDens(fig,whichOutput,nOutput,simName):
 
 def plotSmoothDens(fig,whichOutput,nOutput,simName,smoothLength,minR,maxR):
     # 0_shellIndex, 1_shellMass, 2_shellDens, 3_r1, 4_r2, 5_vr1, 6_vr2, 7_M1, 8_M2
-    shellData=np.genfromtxt('output/'+simName+'.'+str(int(whichOutput))+'_'+str(int(nOutput))+'.txt')
+    fName='output/'+simName+'.'+str(int(whichOutput))+'_'+str(int(nOutput))+'.txt'
+    print('reading from: ',fName)
+    shellData=np.genfromtxt(fName)
     dr=0.25
     nBins=int((maxR-minR)/dr)
     rads=np.linspace(minR+dr,maxR-dr,nBins)
@@ -32,6 +34,8 @@ def plotSmoothDens(fig,whichOutput,nOutput,simName,smoothLength,minR,maxR):
     
     cols=bokeh.palettes.Viridis11
     fig.line(rads,dens,color=cols[int(11*(whichOutput/nOutput))],line_width=2)
+    fig.xaxis.axis_label='r (pc)'
+    fig.yaxis.axis_label='rho (Msun pc-3)'
     return fig
     
 def plotDensProfile(fig,Rs,Rhos,minR,maxR,colour): #if alread have radii and densities plot directly
