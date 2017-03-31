@@ -269,8 +269,8 @@ cpdef void runSim(int nShells,int nPhase,int nEcc,
                   int nOutput,str simName):
     init(nShells,nEcc,nPhase,minR,maxR)
     cdef:
-        int nSteps=int(tMax/dt)
-        int outputSteps=int(nSteps/nOutput)
+        int nSteps=int(tMax/dt)+1
+        int outputSteps=int((nSteps-1)/nOutput) #should ensure n+1 outputs
         int step
         edgeClass edge
         shellClass shell
