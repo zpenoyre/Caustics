@@ -23,7 +23,7 @@ cdef massFunction baryonMass
 
 # this function is the distribution of ccentricities (later probably to be replaced with vr and vt)
 cdef massFunction findEcc
-def findPsi(P,ecc): #function needed to find psi for a given eccentricity and probability REVISIT
+def findPsi(P,ecc): #function needed to find psi for a given eccentricity and probability
     def P_eta(eta,P,ecc):
         #print('eta: ',eta)
         #print('P: ',(eta-ecc*np.sin(eta))/(2*np.pi))
@@ -31,8 +31,8 @@ def findPsi(P,ecc): #function needed to find psi for a given eccentricity and pr
     eta=scipy.optimize.brentq(P_eta,0,2*np.pi,args=(P,ecc))
     #print('eta found: ',eta)
     #print('P(eta): ',P_eta(eta,P,ecc))
-    etas=np.linspace(0,2*np.pi,5)
-    ps=P_eta(etas,P,ecc)
+    #etas=np.linspace(0,2*np.pi,5)
+    #ps=P_eta(etas,P,ecc)
     #print('etas: ',etas)
     #print('Ps: ',ps)
     return np.arctan(np.sqrt((1+ecc)/(1-ecc))*np.tan(eta))
@@ -161,7 +161,6 @@ def init(nShells,nEcc,nPhase,minR,maxR):
     
     # Initial radii of edges
     rs=np.linspace(np.sqrt(minR),np.sqrt(maxR),nShells+1)**2
-    small=1e-6 #prevents perfectly circular orbits (confuses other processes)
     shellsCreated=0
     
     # Creates all the edges
@@ -175,7 +174,7 @@ def init(nShells,nEcc,nPhase,minR,maxR):
         #m0+(4*np.pi*rho*(newEdge.r**3 - rs[0]**3)/3)
         
         #print('P ecc: ',(int(i/(2*(nShells+1)*nPhase))/nEcc))
-        e=small+findEcc.evaluate((int(i/(2*(nShells+1)*nPhase))/nEcc))
+        e=findEcc.evaluate((int(i/(2*(nShells+1)*nPhase))/nEcc))
         #print('ecc: ',e)
         #1+small-np.sqrt(1-(int(i/(2*(nShells+1)*nPhase))/nEcc)) #linearly decreasing eccentricity probability
         #print('P phase: ',(int(i/(2*(nShells+1)))%nPhase)/nPhase)
@@ -292,3 +291,4 @@ cpdef void runSim(int nShells,int nPhase,int nEcc,
     
         if (step%outputSteps==0):
             outputData(step,dt,step/outputSteps,nOutput,simName)
+            print('time: ',step*dt)

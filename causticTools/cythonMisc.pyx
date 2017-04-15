@@ -13,3 +13,19 @@ cpdef np.ndarray findSmoothDens(np.ndarray[double,ndim=1] rads,int nBins,np.ndar
     for i in range(nBins):
         dens[i]=np.sum(rho0*np.exp(-(rads[i]-mid)**2 *one_twoSigmaSq))
     return dens
+    
+cpdef np.ndarray findDens(np.ndarray[double,ndim=1] rads, np.ndarray shellData):
+    cdef:
+        int nRad=rads.size
+        np.ndarray[np.double_t,ndim=1] dens=np.zeros(nRad)
+        np.ndarray inBin
+        int i
+        double thisDens
+    #print(nRad," rads")
+    for i in range(1,nRad-1,2):
+        inBin=np.argwhere(((shellData[:,3]<=rads[i])&(shellData[:,4]>=rads[i+1]))|((shellData[:,4]<=rads[i])&(shellData[:,3]>=rads[i+1])))
+        #print("step: ",i," has shells: ",inBin)
+        thisDens=np.sum(shellData[inBin,2])
+        dens[i]=thisDens
+        dens[i+1]=thisDens
+    return dens

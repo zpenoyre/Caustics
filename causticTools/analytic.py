@@ -8,13 +8,21 @@ mu=1
 t=1
 eps=1
 turn=np.zeros(1)
-def densProfile(minR,maxR,nR,M,m,t,nTurn=100000,G=4.96e-15): #updates parameters and finds density profile
+def densProfile(minR,maxR,nR,M,m,t,nTurn=100000,G=4.96e-15,returnGradient=0): #updates parameters and finds density profile (and optionally it's gradient)
     setGlobals(m,M,t,nTurn,G)
     Rs=genRads(minR,maxR,nR)
     Rhos=np.zeros(nR)
+    if (returnGradient==1):
+        Grads=np.zeros(nR)
     for i in range(nR):   
-        Rhos[i]=findDens(Rs[i])
-    return Rs,Rhos
+        if (returnGradient==1):
+            Rhos[i],Grads[i]=findDens(Rs[i],returnGrad=1)
+        else:
+            Rhos[i]=findDens(Rs[i])
+    if (returnGradient==1):
+        return Rs,Rhos,Grads
+    else:
+        return Rs,Rhos
 
 def setGlobals(new_m,new_M,new_t,nTurn,new_G): #change parameters of calculation (global in this file)
     global G
@@ -65,6 +73,21 @@ def findTurns(n): #finds the eta corresponding to turning points in r(eta)
         turnPt[i]=scipy.optimize.brentq(etaTurn,lowerBound,upperBound)
     return turnPt
     
+def alpha(eta): #could drop this in to a few other places too?
+    return (eta-eps*np.sin(eta))/(1-eps*np.cos(eta))
+    
+def dRho_dr(eta): #finds dRho_dr for a given eta. Non-sensical over singularities but defined elsewhere
+    print('eta: ',eta)
+    R=findRad(eta)
+    print('R: ',R)
+    rho=findDens(R)
+    om=omega(eta)
+    al=alpha(eta)
+    num=(1-eps*(3/2))*np.sin(eta)+al*eps*(3/2)*((eps**2)*(np.sin(eta)**2) - np.cos(eta))
+    denom=3*(al**2)*eps*np.sin(eta)-2*(eta-eps*np.sin(eta))
+    return -(rho/om)*(3*(al**4)*(R**2)*eps)*(num/denom)
+    
+    
 def findInf(rMin,rMax): #finds the r0s between rMin and rMax corresponding to singularities in the density (omega(eta)=0) at time t
     lowEta=etaMin(rMax)
     #print("lower eta: ",lowEta)
@@ -92,7 +115,7 @@ def genRads(rMin,rMax,nRads): #generates a list of radii irregularly spaced such
     rads=np.linspace(np.sqrt(rMin),np.sqrt(rMax),nRads)**2
     rInf=findInf(rMin,rMax)
     nInf=rInf.size
-    if (rInf[0]==0):
+    if (rInf.size==0):
         return rads
     for i in range(0,nRads):
         #print("original rad: ",rads[i])
@@ -131,9 +154,29 @@ def findEtas(R): #finds etas for which r(eta)=R
         etas[i+diff]=scipy.optimize.brentq(F,lowerBound,upperBound,args=(R))
     return etas
     
-def findDens(R): #finds the analytic density at one radii
+def findDens(R,printWorking=0,returnGrad=0): #finds the analytic density at one radii
     etas=findEtas(R)
-    th_mu=(theta(etas)*mu)**-1
-    dens=rho(R*th_mu)
-    om_mu=(omega(etas)*mu)**-1
-    return np.sum(dens*om_mu*(th_mu**2))
+    one_thmu=(theta(etas)*mu)**-1
+    dens=rho(R*one_thmu)
+    #WHY IS THIS ABSOLUTE VALUE!?!?!
+    one_ommu=(omega(etas)*mu)**-1
+    Rho=np.sum(dens*np.abs(one_ommu)*(one_thmu**2))
+    if(printWorking==1):
+        print('______at R: ',R)
+        print('etas: ',etas)
+        print('1/mu*theta: ',one_thmu)
+        print('dens(r0): ',dens)
+        print('1/mu*omega: ',one_ommu)
+        print('dens(R): ',np.sum(dens*one_ommu*(one_thmu**2)))
+    if(returnGrad==1):
+        al=alpha(etas)
+        om=omega(etas)
+        th=theta(etas)
+        num=(1-eps*(3/2))*np.sin(etas)+al*eps*(3/2)*((eps**2)*(np.sin(etas)**2) - np.cos(etas))
+        denom=3*(al**2)*eps*np.sin(etas)-2*(etas-eps*np.sin(etas))
+        rho_i=dens*one_ommu*(one_thmu**2)
+        dr_deta=(1/(3*(R**2)*(al**3)))*(3*eps*al*np.sin(etas)-2*(1-eps*np.cos(etas)))
+        otherTerm=(2*eps*np.sin(etas)/th)+(eps/(2*om))*((3*al*(eps-np.cos(etas))/(1-eps*np.cos(etas))) - np.sin(etas))
+        grad=np.sum(-rho_i*otherTerm/dr_deta)
+        return Rho,grad
+    return Rho
