@@ -8,9 +8,12 @@ mu=1
 t=1
 eps=1
 turn=np.zeros(1)
-def densProfile(minR,maxR,nR,M,m,t,nTurn=100000,G=4.96e-15,returnGradient=0): #updates parameters and finds density profile (and optionally it's gradient)
+def densProfile(minR,maxR,nR,M,m,t,nTurn=100000,G=4.96e-15,returnGradient=0,evenSpaced=1): #updates parameters and finds density profile (and optionally it's gradient)
     setGlobals(m,M,t,nTurn,G)
-    Rs=genRads(minR,maxR,nR)
+    if evenSpaced==0:
+        Rs=genRads(minR,maxR,nR)
+    else:
+        Rs=np.linspace(np.sqrt(minR),np.sqrt(maxR),nR)**2
     Rhos=np.zeros(nR)
     if (returnGradient==1):
         Grads=np.zeros(nR)
