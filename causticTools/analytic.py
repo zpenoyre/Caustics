@@ -54,10 +54,18 @@ def F(eta,R):
     return findRad(eta)-R
 
 def theta(eta): #flipped compared to notebook!
-    return 1-eps*np.cos(eta)
+    return 1.-eps*np.cos(eta)
 
 def omega(eta):
-    return 1-eps*(np.cos(eta)+(3*np.sin(eta)/2)*((eta-eps*np.sin(eta))/(1-eps*np.cos(eta))))
+    return 1.-eps*(np.cos(eta)+((3.*np.sin(eta))/2.)*((eta-eps*np.sin(eta))/(1-eps*np.cos(eta))))
+    #wrong as found by emily sandford, MD, PhD, extraordinaire, etc
+    #return 1.-eps*(np.cos(eta)+((3./2.)*((eta-eps*np.sin(eta))/(1-eps*np.cos(eta))))
+
+def dTheta(eta):
+    return eps*np.sin(eta)
+def dOmega(eta):
+    al=alpha(eta)
+    return (eps/2)*(-np.sin(eta) - (3/al)*np.cos(eta) + 3*eps*np.power(np.sin(eta),2)/(al*(1-eps*np.cos(eta))))
 
 def rho(R):
     return 1
@@ -77,19 +85,25 @@ def findTurns(n): #finds the eta corresponding to turning points in r(eta)
     return turnPt
     
 def alpha(eta): #could drop this in to a few other places too?
-    return (eta-eps*np.sin(eta))/(1-eps*np.cos(eta))
+    return (1-eps*np.cos(eta))/(eta-eps*np.sin(eta))
     
 def dRho_dr(eta): #finds dRho_dr for a given eta. Non-sensical over singularities but defined elsewhere
-    print('eta: ',eta)
-    R=findRad(eta)
-    print('R: ',R)
-    rho=findDens(R)
+    #ignores dRho_dr
+    dEta_dr=1/dr_dEta(eta)
+    th=theta(eta)
+    dTh=dTheta(eta)
     om=omega(eta)
+    dOm=dOmega(eta)
     al=alpha(eta)
-    num=(1-eps*(3/2))*np.sin(eta)+al*eps*(3/2)*((eps**2)*(np.sin(eta)**2) - np.cos(eta))
-    denom=3*(al**2)*eps*np.sin(eta)-2*(eta-eps*np.sin(eta))
-    return -(rho/om)*(3*(al**4)*(R**2)*eps)*(num/denom)
-    
+    #bracket=(2/th) + ((1 - (3/(2*np.sin(eta))) + ((3*eps)/(2*al*(1- eps*np.cos(eta)))))/om)
+    #pre=-np.abs(om)*eps*np.sin(eta)/np.power(om*th,2)
+    dFactor=-(1/(np.power(th,2)*np.abs(om)))*((2/th)*dTh + (1/om)*dOm)
+    return np.power(mu,-3)*dEta_dr*dFactor*rho(findR0(eta))
+
+def dr_dEta(eta):
+    r=findRad(eta)
+    al=alpha(eta)
+    return r*(eps*(np.sin(eta)/(1-eps*np.cos(eta))) - (2/3)*al)
     
 def findInf(rMin,rMax): #finds the r0s between rMin and rMax corresponding to singularities in the density (omega(eta)=0) at time t
     lowEta=etaMin(rMax)
@@ -172,14 +186,16 @@ def findDens(R,printWorking=0,returnGrad=0): #finds the analytic density at one 
         print('1/mu*omega: ',one_ommu)
         print('dens(R): ',np.sum(dens*one_ommu*(one_thmu**2)))
     if(returnGrad==1):
-        al=alpha(etas)
-        om=omega(etas)
-        th=theta(etas)
-        num=(1-eps*(3/2))*np.sin(etas)+al*eps*(3/2)*((eps**2)*(np.sin(etas)**2) - np.cos(etas))
-        denom=3*(al**2)*eps*np.sin(etas)-2*(etas-eps*np.sin(etas))
-        rho_i=dens*one_ommu*(one_thmu**2)
-        dr_deta=(1/(3*(R**2)*(al**3)))*(3*eps*al*np.sin(etas)-2*(1-eps*np.cos(etas)))
-        otherTerm=(2*eps*np.sin(etas)/th)+(eps/(2*om))*((3*al*(eps-np.cos(etas))/(1-eps*np.cos(etas))) - np.sin(etas))
-        grad=np.sum(-rho_i*otherTerm/dr_deta)
+        grad=np.sum(dRho_dr(etas))
+        #2nd attempt
+        #al=alpha(etas)
+        #om=omega(etas)
+        #th=theta(etas)
+        #num=(1-eps*(3/2))*np.sin(etas)+al*eps*(3/2)*((eps**2)*(np.sin(etas)**2) - np.cos(etas))
+        #denom=3*(al**2)*eps*np.sin(etas)-2*(etas-eps*np.sin(etas))
+        #rho_i=dens*one_ommu*(one_thmu**2)
+        #dr_deta=(1/(3*(R**2)*(al**3)))*(3*eps*al*np.sin(etas)-2*(1-eps*np.cos(etas)))
+        #otherTerm=(2*eps*np.sin(etas)/th)+(eps/(2*om))*((3*al*(eps-np.cos(etas))/(1-eps*np.cos(etas))) - np.sin(etas))
+        #grad=np.sum(-rho_i*otherTerm/dr_deta)
         return Rho,grad
     return Rho
