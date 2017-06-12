@@ -25,16 +25,8 @@ cdef massFunction baryonMass
 cdef massFunction findEcc
 def findPsi(P,ecc): #function needed to find psi for a given eccentricity and probability
     def P_eta(eta,P,ecc):
-        #print('eta: ',eta)
-        #print('P: ',(eta-ecc*np.sin(eta))/(2*np.pi))
         return ((eta-ecc*np.sin(eta))/(2*np.pi))-P
     eta=scipy.optimize.brentq(P_eta,0,2*np.pi,args=(P,ecc))
-    #print('eta found: ',eta)
-    #print('P(eta): ',P_eta(eta,P,ecc))
-    #etas=np.linspace(0,2*np.pi,5)
-    #ps=P_eta(etas,P,ecc)
-    #print('etas: ',etas)
-    #print('Ps: ',ps)
     return np.arctan(np.sqrt((1+ecc)/(1-ecc))*np.tan(eta))
 
 # and their form is inputted from python here
